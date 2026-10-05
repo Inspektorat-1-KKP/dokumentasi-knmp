@@ -21,8 +21,37 @@
       height: 100%;
     }
 
+    :root {
+      --header-height: 60px;
+    }
+
     .leaflet-top.leaflet-left {
-      top: 44px;
+      top: var(--header-height);
+    }
+
+    #bar {
+      top: calc(var(--header-height) + 10px) !important;
+    }
+
+    #topheader {
+      flex-wrap: wrap;
+      padding: 10px 16px !important;
+    }
+
+    @media (max-width: 480px) {
+      #topheader span {
+        font-size: 15px;
+      }
+
+      #topheader a {
+        font-size: 12px;
+        padding: 5px 10px !important;
+      }
+
+      #bar {
+        left: 10px !important;
+        font-size: 13px;
+      }
     }
 
     .leaflet-interactive:focus {
@@ -88,7 +117,7 @@
         background:#0b3d91; color:#fff; padding:10px 20px;
         display:flex; justify-content:space-between; align-items:center;">
     <span style="font-weight:bold;">Cakupan KNMP oleh Inspektorat I Tahun 2026</span>
-    <a href="https://sites.google.com/view/inspektorat1/menu-utama/Beranda" target="_blank" style="background:#fff; color:#0b3d91; padding:6px 14px; border-radius:4px;
+    <a href="https://sites.google.com/view/inspektorat1/menu-utama/Beranda/pkpn-knmp?authuser=0" target="_blank" style="background:#fff; color:#0b3d91; padding:6px 14px; border-radius:4px;
             text-decoration:none; font-size:14px;">
       Kembali ke Situs Inspektorat I
     </a>
@@ -274,8 +303,6 @@
       if (!url) return '';
       const match = url.match(/[-\w]{25,}/);
       if (match) {
-        // Ganti format lama (uc?export=view) dengan endpoint thumbnail baru
-        // Parameter &sz=w1000 digunakan agar kualitas gambar tetap bagus (lebar 1000px)
         return 'https://drive.google.com/thumbnail?id=' + match[0] + '&sz=w1000';
       }
       return url;
@@ -338,9 +365,9 @@
     }
 
     document.getElementById('backBtn').addEventListener('click', function () {
-      map.closePopup(); // Menutup popup secara otomatis saat tombol kembali ditekan
+      map.closePopup();
       if (backAction) {
-        backAction(); // Menjalankan fungsi untuk naik level administrasi
+        backAction();
       }
     });
   </script>
