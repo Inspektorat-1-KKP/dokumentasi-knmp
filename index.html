@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dokumentasi KNMP</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    #map {
+      height: 100%;
+    }
+
+    .leaflet-top.leaflet-left {
+      top: 44px;
+    }
+
+    .leaflet-interactive:focus {
+      outline: none;
+    }
+
+    button {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    .popup-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 6px 0;
+    }
+
+    .popup-nav button {
+      border: none;
+      background: #eee;
+      border-radius: 4px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .popup-nav button:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    .popup-nav span {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .foto-scroll {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      margin-top: 6px;
+      padding-bottom: 4px;
+    }
+
+    .foto-scroll img {
+      flex: 0 0 82%;
+      scroll-snap-align: start;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .leaflet-control-zoom {
+      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.6);
+      border-radius: 6px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="topheader" style="position:absolute; z-index:1001; top:0; left:0; right:0;
+        background:#0b3d91; color:#fff; padding:10px 20px;
+        display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-weight:bold;">Cakupan KNMP oleh Inspektorat I Tahun 2026</span>
+    <a href="https://sites.google.com/view/inspektorat1/menu-utama/Beranda" target="_blank" style="background:#fff; color:#0b3d91; padding:6px 14px; border-radius:4px;
+            text-decoration:none; font-size:14px;">
+      Kembali ke Situs Inspektorat I
+    </a>
+  </div>
+  <div id="bar" style="position:absolute; z-index:1000; top:55px; left:50px;
+     background:#fff; padding:8px 14px; border-radius:6px;
+     box-shadow:0 1px 5px rgba(0, 0, 0, 0.3); font-size:14px;
+     display:flex; align-items:center; gap:10px;">
+    <button id="backBtn" style="display:none; border:none; background:none; 
+          padding:0; cursor:pointer; font-size:18px; color:#333;">&larr;</button>
+    <span id="label">Indonesia</span>
+  </div>
+
+  <div id="map"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script>
+    const map = L.map('map').setView([-2.5, 118], 5);
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics'
+    }).addTo(map);
+
+    let provGeo, kabGeo, desaGeo;
+    let currentLayer;
+    let backAction = null;
+    let docs = [];
+    let popupRows = [];
+    let popupIndex = 0;
+    let popupNamaDesa = '';
+    let popupLatlng = null;
+    let popupInstance = null;
+
+    const URL_DOKUMENTASI = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTNxgAjFa5xJuGoyrobT_FSp7UoHrO3qEkmYjzVbkYII3jTRTWrxXY-ZNjuwfPzGTYUsLxKgzXWCXok/pub?gid=0&single=true&output=csv';
+
+    Papa.parse(URL_DOKUMENTASI, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: function (results) {
+        docs = results.data;
+      }
+    });
+
+    fetch('data/provinsi_TOPO.json')
+      .then(res => res.json())
+      .then(topoData => {
+        provGeo = topojson.feature(topoData, topoData.objects.provinsi_GEOv2);
+        showProvinsi();
+      });
+
+    function updateBreadcrumb(path) {
+      const html = path.map(function (teks, i) {
+        const terakhir = (i === path.length - 1);
+        const warna = terakhir ? '#000' : '#999';
+        const tebal = terakhir ? '700' : '400';
+        return `<span style="color:${warna}; font-weight:${tebal};">${teks}</span>`;
+      }).join(' <span style="color:#bbb;">/</span> ');
+
+      document.getElementById('label').innerHTML = html;
+    }
+
+    function showProvinsi() {
+      if (currentLayer) map.removeLayer(currentLayer);
+
+      updateBreadcrumb(['Indonesia']);
+      document.getElementById('backBtn').style.display = 'none';
+      backAction = null;
+
+      currentLayer = L.geoJSON(provGeo, {
+        style: function (feature) {
+          if (feature.properties.kode_prov === 1) {
+            return { color: '#000000', weight: 1, fillColor: '#FF0000', fillOpacity: 0.8 };
+          } else {
+            return { color: '#000000', weight: 1, opacity: 1, fillColor: '#ccc', fillOpacity: 0 };
+          }
+        },
+        onEachFeature: function (feature, layer) {
+          layer.bindTooltip(feature.properties.WADMPR);
+
+          if (feature.properties.kode_prov === 1) {
+            layer.on('click', function () {
+              showKabupaten(feature.properties.WADMPR);
+            });
+          }
+        }
+      }).addTo(map);
+
+      map.fitBounds(currentLayer.getBounds());
+    }
+
+    function showKabupaten(namaProvinsi) {
+      fetch('data/kabupaten_TOPO.json')
+        .then(res => res.json())
+        .then(topoData => {
+          kabGeo = topojson.feature(topoData, topoData.objects.kabupaten_GEOv2);
+
+          if (currentLayer) map.removeLayer(currentLayer);
+
+          updateBreadcrumb(['Indonesia', namaProvinsi]);
+          document.getElementById('backBtn').style.display = 'inline';
+          backAction = showProvinsi;
+
+          const subsetKab = {
+            type: 'FeatureCollection',
+            features: kabGeo.features.filter(f => f.properties.WADMPR === namaProvinsi)
+          };
+
+          currentLayer = L.geoJSON(subsetKab, {
+            style: function (feature) {
+              if (feature.properties.kode_kab === 1) {
+                return { color: '#000000', weight: 1, fillColor: '#FFA500', fillOpacity: 0.8 };
+              } else {
+                return { color: '#000000', weight: 1, fillColor: '#ccc', fillOpacity: 0 };
+              }
+            },
+            onEachFeature: function (feature, layer) {
+              layer.bindTooltip(feature.properties.WADMKK);
+
+              if (feature.properties.kode_kab === 1) {
+                layer.on('click', function () {
+                  showDesa(namaProvinsi, feature.properties.WADMKK);
+                });
+              }
+            }
+          }).addTo(map);
+
+          map.fitBounds(currentLayer.getBounds());
+        });
+    }
+    function showDesa(namaProvinsi, namaKabupaten) {
+      fetch('data/desa_TOPO.json')
+        .then(res => res.json())
+        .then(topoData => {
+          desaGeo = topojson.feature(topoData, topoData.objects.desa_GEOv2);
+
+          if (currentLayer) map.removeLayer(currentLayer);
+
+          updateBreadcrumb(['Indonesia', namaProvinsi, namaKabupaten]);
+          document.getElementById('backBtn').style.display = 'inline';
+          backAction = function () { showKabupaten(namaProvinsi); };
+
+          const subsetDesa = {
+            type: 'FeatureCollection',
+            features: desaGeo.features.filter(f => f.properties.WADMPR === namaProvinsi && f.properties.WADMKK === namaKabupaten)
+          };
+
+          currentLayer = L.geoJSON(subsetDesa, {
+            style: function (feature) {
+              if (feature.properties.kode_desa === 1) {
+                return { color: '#000000', weight: 1, fillColor: '#FFFF00', fillOpacity: 1 };
+              } else {
+                return { color: '#000000', weight: 0.5, fillColor: '#ccc', fillOpacity: 0 };
+              }
+            },
+            onEachFeature: function (feature, layer) {
+              layer.bindTooltip(feature.properties.WADMKD);
+
+              if (feature.properties.kode_desa === 1) {
+                layer.on('click', function (e) {
+                  showPopupDokumentasi(feature, e.latlng);
+                });
+              }
+            }
+          }).addTo(map);
+
+          const desaHighlight = {
+            type: 'FeatureCollection',
+            features: subsetDesa.features.filter(f => f.properties.kode_desa === 1)
+          };
+
+          if (desaHighlight.features.length > 0) {
+            const boundsHighlight = L.geoJSON(desaHighlight).getBounds();
+            map.fitBounds(boundsHighlight, { maxZoom: 15, padding: [50, 50] });
+          } else {
+            map.fitBounds(currentLayer.getBounds());
+          }
+        });
+    }
+
+    function convertDriveLink(url) {
+      if (!url) return '';
+      const match = url.match(/[-\w]{25,}/);
+      if (match) {
+        // Ganti format lama (uc?export=view) dengan endpoint thumbnail baru
+        // Parameter &sz=w1000 digunakan agar kualitas gambar tetap bagus (lebar 1000px)
+        return 'https://drive.google.com/thumbnail?id=' + match[0] + '&sz=w1000';
+      }
+      return url;
+    }
+    function showPopupDokumentasi(feature, latlng) {
+      const kodeDesa = String(feature.properties.OBJECTID);
+      popupRows = docs.filter(d => String(d.kode_desa) === kodeDesa);
+
+      popupRows.sort(function (a, b) {
+        const tglA = a.tanggal.split('/').reverse().join('-');
+        const tglB = b.tanggal.split('/').reverse().join('-');
+        return tglB.localeCompare(tglA);
+      });
+
+      popupIndex = 0;
+      popupNamaDesa = feature.properties.WADMKD;
+      popupLatlng = latlng;
+
+      popupInstance = L.popup({ maxWidth: 300, autoPan: true }).setLatLng(latlng);
+      renderPopupEntry();
+      popupInstance.openOn(map);
+    }
+
+    function renderPopupEntry() {
+      let kontenKegiatan;
+
+      if (popupRows.length === 0) {
+        kontenKegiatan = '<i>Belum ada dokumentasi untuk desa ini.</i>';
+      } else {
+        const d = popupRows[popupIndex];
+        const daftarFoto = (d.foto || '').split('|').map(s => s.trim()).filter(s => s !== '');
+        const fotoHtml = daftarFoto.map(f => `<img src="${convertDriveLink(f)}">`).join('');
+
+        const navKegiatan = popupRows.length > 1 ? `
+      <div class="popup-nav">
+        <button onclick="gantiKegiatan(-1, event)" ${popupIndex === 0 ? 'disabled' : ''}>&larr;</button>
+        <span>${popupIndex + 1} / ${popupRows.length}</span>
+        <button onclick="gantiKegiatan(1, event)" ${popupIndex === popupRows.length - 1 ? 'disabled' : ''}>&rarr;</button>
+      </div>` : '';
+
+        kontenKegiatan = `
+      ${navKegiatan}
+      <h4 style="margin:6px 0 2px;">${d.judul || '-'}</h4>
+      <small style="color:#666;">${d.tanggal || ''}</small>
+      <div>${d.keterangan || ''}</div>
+      <div class="foto-scroll">${fotoHtml}</div>
+    `;
+      }
+
+      popupInstance.setContent(`<div style="max-width:280px;"><b>${popupNamaDesa}</b>${kontenKegiatan}</div>`);
+    }
+
+    function gantiKegiatan(arah, e) {
+      if (e) e.stopPropagation();
+
+      popupIndex += arah;
+      if (popupIndex < 0) popupIndex = 0;
+      if (popupIndex > popupRows.length - 1) popupIndex = popupRows.length - 1;
+      renderPopupEntry();
+    }
+
+    document.getElementById('backBtn').addEventListener('click', function () {
+      map.closePopup(); // Menutup popup secara otomatis saat tombol kembali ditekan
+      if (backAction) {
+        backAction(); // Menjalankan fungsi untuk naik level administrasi
+      }
+    });
+  </script>
+</body>
+
+</html>
