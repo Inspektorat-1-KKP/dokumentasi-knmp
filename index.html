@@ -25,14 +25,12 @@
       --header-height: 60px;
     }
 
-    /* Posisi tombol zoom +/- Leaflet (selalu berada tepat di bawah kotak biru) */
     .leaflet-top.leaflet-left {
       top: calc(var(--header-height) - 15px) !important;
     }
 
-    /* Posisi kotak putih Breadcrumb (Indonesia / Provinsi / dll) */
     #bar {
-      top: calc(var(--header-height) - 3px) !important;
+      top: calc(var(--header-height) - 4px) !important;
       left: 50px !important;
       font-size: 15px;
     }
@@ -89,7 +87,7 @@
 
     .leaflet-control-zoom {
       box-shadow: 0 1px 5px rgba(0, 0, 0, 0.6);
-      border-radius: 6px;
+      border-radius: 8px;
     }
   </style>
 </head>
@@ -98,18 +96,21 @@
   <div id="topheader" style="position:absolute; z-index:1001; top:0; left:0; right:0;
         background:#0b3d91; color:#fff; padding:10px 20px;
         display:flex; justify-content:space-between; align-items:center;">
-    <span style="font-weight:bold;">Cakupan KNMP oleh Inspektorat I Tahun 2026</span>
+    <span style="font-weight:bold; font-size:15px;">Cakupan KNMP oleh Inspektorat I Tahun 2026</span>
     <a href="https://sites.google.com/view/inspektorat1/menu-utama/Beranda/pkpn-knmp?authuser=0" target="_blank" style="background:#fff; color:#0b3d91; padding:6px 14px; border-radius:4px;
-            text-decoration:none; font-size:14px;">
+            text-decoration:none; font-size:15px; font-weight:700;">
       Kembali ke Situs Inspektorat I
     </a>
   </div>
-  <div id="bar" style="position:absolute; z-index:1000; top:0px; left:50px;
-     background:#fff; padding:8px 14px; border-radius:6px;
-     box-shadow:0 1px 5px rgba(0, 0, 0, 0.3); font-size:14px;
-     display:flex; align-items:center; gap:10px;">
-    <button id="backBtn" style="display:none; border:none; background:none; 
-          padding:0; cursor:pointer; font-size:18px; color:#000000;">&larr;</button>
+  <div id="bar" style="position:absolute; z-index:1000;
+   background:#fff; padding:10px 18px; border-radius:8px;
+   box-shadow:0 1px 5px rgba(0, 0, 0, 0.3); font-size:15px;
+   display:flex; align-items:center; gap:10px;
+   min-height:40px; box-sizing:border-box;">
+    <button id="backBtn" style="display:none; align-items:center; gap:6px;
+      border:2px solid #0b3d91; background:#fff; color:#0b3d91;
+      padding:5px 10px; border-radius:8px; cursor:pointer;
+      font-size:14px; font-weight:700;"></button>
     <span id="label">Indonesia</span>
   </div>
 
@@ -202,7 +203,7 @@
           if (currentLayer) map.removeLayer(currentLayer);
 
           updateBreadcrumb(['Indonesia', namaProvinsi]);
-          document.getElementById('backBtn').innerHTML = '<span style="font-size:16px;">&larr;</span> Indonesia';
+          document.getElementById('backBtn').innerHTML = '<span style="font-size:15px;">&larr;</span> Indonesia';
           document.getElementById('backBtn').style.display = 'flex';
           backAction = showProvinsi;
 
@@ -242,7 +243,7 @@
           if (currentLayer) map.removeLayer(currentLayer);
 
           updateBreadcrumb(['Indonesia', namaProvinsi, namaKabupaten]);
-          document.getElementById('backBtn').innerHTML = '<span style="font-size:16px;">&larr;</span> ' + namaProvinsi;
+          document.getElementById('backBtn').innerHTML = '<span style="font-size:15px;">&larr;</span> ' + namaProvinsi;
           document.getElementById('backBtn').style.display = 'flex';
           backAction = function () { showKabupaten(namaProvinsi); };
 
