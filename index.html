@@ -89,6 +89,13 @@
       box-shadow: 0 1px 5px rgba(0, 0, 0, 0.6);
       border-radius: 8px;
     }
+
+    .ikon-knmp {
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+      object-fit: cover;
+    }
   </style>
 </head>
 
@@ -107,10 +114,11 @@
    box-shadow:0 1px 5px rgba(0, 0, 0, 0.3); font-size:15px;
    display:flex; align-items:center; gap:10px;
    min-height:40px; box-sizing:border-box;">
-    <button id="backBtn" style="display:none; align-items:center; gap:6px;
-      border:2px solid #0b3d91; background:#fff; color:#0b3d91;
-      padding:5px 10px; border-radius:8px; cursor:pointer;
-      font-size:14px; font-weight:700;"></button>
+    <button id="backBtn" style="display:none; align-items:center; justify-content:center;
+      border: 2px solid #0b3d91; background:#fff;
+      padding:0 0px; border-radius:5px; cursor:pointer; border:none;">
+      <img src="data/arrow.svg" width="30" height="26" alt="Kembali">
+    </button>
     <span id="label">Indonesia</span>
   </div>
 
@@ -125,7 +133,7 @@
       attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics'
     }).addTo(map);
 
-    let provGeo, kabGeo, desaGeo;
+    let provGeo, kabGeo, desaGeo, knmpGeo;
     let currentLayer;
     let backAction = null;
     let docs = [];
@@ -152,6 +160,11 @@
       .then(topoData => {
         provGeo = topojson.feature(topoData, topoData.objects.provinsi_GEOv2);
         showProvinsi();
+      });
+    fetch('data/knmp_geo2.json')
+      .then(res => res.json())
+      .then(geo => {
+        knmpGeo = geo;
       });
 
     function updateBreadcrumb(path) {
@@ -203,7 +216,6 @@
           if (currentLayer) map.removeLayer(currentLayer);
 
           updateBreadcrumb(['Indonesia', namaProvinsi]);
-          document.getElementById('backBtn').innerHTML = '<span style="font-size:15px;">&larr;</span> Indonesia';
           document.getElementById('backBtn').style.display = 'flex';
           backAction = showProvinsi;
 
@@ -243,7 +255,6 @@
           if (currentLayer) map.removeLayer(currentLayer);
 
           updateBreadcrumb(['Indonesia', namaProvinsi, namaKabupaten]);
-          document.getElementById('backBtn').innerHTML = '<span style="font-size:15px;">&larr;</span> ' + namaProvinsi;
           document.getElementById('backBtn').style.display = 'flex';
           backAction = function () { showKabupaten(namaProvinsi); };
 
@@ -252,24 +263,48 @@
             features: desaGeo.features.filter(f => f.properties.WADMPR === namaProvinsi && f.properties.WADMKK === namaKabupaten)
           };
 
-          currentLayer = L.geoJSON(subsetDesa, {
+          const layerPoligon = L.geoJSON(subsetDesa, {
             style: function (feature) {
-              if (feature.properties.kode_desa === 1) {
-                return { color: '#000000', weight: 1, fillColor: '#FFFF00', fillOpacity: 1 };
-              } else {
-                return { color: '#000000', weight: 0.5, fillColor: '#ccc', fillOpacity: 0 };
-              }
+              return { color: '#000000', weight: 1, fillOpacity: 0 };
             },
             onEachFeature: function (feature, layer) {
               layer.bindTooltip(feature.properties.WADMKD);
-
-              if (feature.properties.kode_desa === 1) {
-                layer.on('click', function (e) {
-                  showPopupDokumentasi(feature, e.latlng);
-                });
-              }
             }
-          }).addTo(map);
+          });
+
+          const subsetTitik = knmpGeo ? knmpGeo.features.filter(f =>
+            f.properties.WADMPR === namaProvinsi && f.properties.WADMKK === namaKabupaten) : [];
+
+          const logoKNMP = L.icon({
+            iconUrl: 'data/knmp.svg',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18], 
+            popupAnchor: [0, -18], 
+            className: 'ikon-knmp'
+          });
+
+          // 2. Terapkan ke layer
+          const layerTitik = L.geoJSON({ type: 'FeatureCollection', features: subsetTitik }, {
+            pointToLayer: function (feature, latlng) {
+              return L.marker(latlng, { icon: logoKNMP });
+            },
+            onEachFeature: function (feature, layer) {
+              layer.bindTooltip(feature.properties.NAMOBJ || feature.properties.WADMKD);
+
+              layer.on('click', function (e) {
+                const poligonCocok = subsetDesa.features.find(function (f) {
+                  return f.properties.kode_desa === 1 &&
+                    f.properties.WADMKD === feature.properties.WADMKD &&
+                    f.properties.WADMKK === feature.properties.WADMKK;
+                });
+                if (poligonCocok) {
+                  showPopupDokumentasi(poligonCocok, e.latlng);
+                }
+              });
+            }
+          });
+
+          currentLayer = L.layerGroup([layerPoligon, layerTitik]).addTo(map);
 
           const desaHighlight = {
             type: 'FeatureCollection',
@@ -280,7 +315,7 @@
             const boundsHighlight = L.geoJSON(desaHighlight).getBounds();
             map.fitBounds(boundsHighlight, { maxZoom: 15, padding: [50, 50] });
           } else {
-            map.fitBounds(currentLayer.getBounds());
+            map.fitBounds(layerPoligon.getBounds());
           }
         });
     }
@@ -294,8 +329,13 @@
       return url;
     }
     function showPopupDokumentasi(feature, latlng) {
-      const kodeDesa = String(feature.properties.OBJECTID);
-      popupRows = docs.filter(d => String(d.kode_desa) === kodeDesa);
+      const namaDesaSpasial = String(feature.properties.WADMKD).toLowerCase().trim();
+
+      popupRows = docs.filter(d => {
+        if (!d.nama_desa) return false;
+        const namaDesaSheet = String(d.nama_desa).toLowerCase().trim();
+        return namaDesaSheet === namaDesaSpasial;
+      });
 
       popupRows.sort(function (a, b) {
         const tglA = a.tanggal.split('/').reverse().join('-');
@@ -305,7 +345,11 @@
 
       popupIndex = 0;
       fotoIndex = 0;
-      popupNamaDesa = feature.properties.WADMKD;
+      if (popupRows.length > 0 && popupRows[0].nama_knmp) {
+        popupNamaDesa = popupRows[0].nama_knmp;
+      } else {
+        popupNamaDesa = feature.properties.NAMOBJ || feature.properties.WADMKD || "Tanpa Nama";
+      }
       popupLatlng = latlng;
 
       popupInstance = L.popup({ maxWidth: 300, autoPan: true }).setLatLng(latlng);
@@ -340,7 +384,6 @@
                  align-items:center; justify-content:center;">&rarr;</button>
       ` : '';
 
-          // Titik-titik indikator di bawah foto (gaya Instagram)
           const dotFoto = daftarFoto.length > 1 ? `
         <div style="display:flex; justify-content:center; gap:6px; margin-top:8px;">
           ${daftarFoto.map((_, i) => `
@@ -427,5 +470,4 @@
     window.addEventListener('resize', updateHeaderHeight);
   </script>
 </body>
-
 </html>
