@@ -371,16 +371,15 @@
         if (daftarFoto.length > 0) {
           const urlFotoSekarang = convertDriveLink(daftarFoto[fotoIndex]);
 
-          // Panah transparan menempel di atas foto (gaya carousel/galeri)
           const panahFoto = daftarFoto.length > 1 ? `
         <button onclick="gantiFoto(-1, event)" ${fotoIndex === 0 ? 'disabled' : ''}
           style="position:absolute; left:4px; top:50%; transform:translateY(-50%);
-                 border:none; background:rgba(0,0,0,0.4); color:#fff; width:28px; height:28px;
+                 border:none; background:rgba(0,0,0,0.8); color:#fff; width:28px; height:28px;
                  border-radius:50%; cursor:pointer; font-size:14px; display:flex;
                  align-items:center; justify-content:center;">&larr;</button>
         <button onclick="gantiFoto(1, event)" ${fotoIndex === daftarFoto.length - 1 ? 'disabled' : ''}
           style="position:absolute; right:4px; top:50%; transform:translateY(-50%);
-                 border:none; background:rgba(0,0,0,0.4); color:#fff; width:28px; height:28px;
+                 border:none; background:rgba(0,0,0,0.8); color:#fff; width:28px; height:28px;
                  border-radius:50%; cursor:pointer; font-size:14px; display:flex;
                  align-items:center; justify-content:center;">&rarr;</button>
       ` : '';
