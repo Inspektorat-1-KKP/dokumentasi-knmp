@@ -25,12 +25,16 @@
       --header-height: 60px;
     }
 
+    /* Posisi tombol zoom +/- Leaflet (selalu berada tepat di bawah kotak biru) */
     .leaflet-top.leaflet-left {
-      top: var(--header-height);
+      top: calc(var(--header-height) - 15px) !important;
     }
 
+    /* Posisi kotak putih Breadcrumb (Indonesia / Provinsi / dll) */
     #bar {
-      top: calc(var(--header-height) + 10px) !important;
+      top: calc(var(--header-height) - 3px) !important;
+      left: 50px !important;
+      font-size: 15px;
     }
 
     #topheader {
@@ -48,12 +52,6 @@
       font-size: 12px;
       padding: 5px 10px !important;
     }
-
-    #bar {
-      left: 50px !important;
-      font-size: 13px;
-    }
-
 
     .leaflet-interactive:focus {
       outline: none;
@@ -204,7 +202,8 @@
           if (currentLayer) map.removeLayer(currentLayer);
 
           updateBreadcrumb(['Indonesia', namaProvinsi]);
-          document.getElementById('backBtn').style.display = 'inline';
+          document.getElementById('backBtn').innerHTML = '<span style="font-size:16px;">&larr;</span> Indonesia';
+          document.getElementById('backBtn').style.display = 'flex';
           backAction = showProvinsi;
 
           const subsetKab = {
@@ -243,7 +242,8 @@
           if (currentLayer) map.removeLayer(currentLayer);
 
           updateBreadcrumb(['Indonesia', namaProvinsi, namaKabupaten]);
-          document.getElementById('backBtn').style.display = 'inline';
+          document.getElementById('backBtn').innerHTML = '<span style="font-size:16px;">&larr;</span> ' + namaProvinsi;
+          document.getElementById('backBtn').style.display = 'flex';
           backAction = function () { showKabupaten(namaProvinsi); };
 
           const subsetDesa = {
@@ -359,7 +359,6 @@
       `;
         }
 
-        // Badge navigasi kegiatan (gaya pill berwarna)
         const navKegiatan = popupRows.length > 1 ? `
       <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:8px;">
         <button onclick="gantiKegiatan(-1, event)" ${popupIndex === 0 ? 'disabled' : ''}
