@@ -129,8 +129,9 @@
   <script>
     const map = L.map('map').setView([-2.5, 118], 5);
 
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics'
+    L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+      attribution: '&copy; Google Maps',
+      maxZoom: 20
     }).addTo(map);
 
     let provGeo, kabGeo, desaGeo, knmpGeo;
