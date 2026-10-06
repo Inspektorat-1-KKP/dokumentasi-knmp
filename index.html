@@ -42,17 +42,18 @@
       #topheader span {
         font-size: 15px;
       }
-
-      #topheader a {
-        font-size: 12px;
-        padding: 5px 10px !important;
-      }
-
-      #bar {
-        left: 10px !important;
-        font-size: 13px;
-      }
     }
+
+    #topheader a {
+      font-size: 12px;
+      padding: 5px 10px !important;
+    }
+
+    #bar {
+      left: 50px !important;
+      font-size: 13px;
+    }
+
 
     .leaflet-interactive:focus {
       outline: none;
@@ -71,11 +72,11 @@
 
     .popup-nav button {
       border: none;
-      background: #eee;
-      border-radius: 4px;
+      background: transparent;
       padding: 4px 12px;
       cursor: pointer;
       font-size: 16px;
+      font-weight: bold;
     }
 
     .popup-nav button:disabled {
@@ -86,23 +87,6 @@
     .popup-nav span {
       font-size: 13px;
       color: #666;
-    }
-
-    .foto-scroll {
-      display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      margin-top: 6px;
-      padding-bottom: 4px;
-    }
-
-    .foto-scroll img {
-      flex: 0 0 82%;
-      scroll-snap-align: start;
-      max-height: 180px;
-      object-fit: cover;
-      border-radius: 6px;
     }
 
     .leaflet-control-zoom {
@@ -122,12 +106,12 @@
       Kembali ke Situs Inspektorat I
     </a>
   </div>
-  <div id="bar" style="position:absolute; z-index:1000; top:55px; left:50px;
+  <div id="bar" style="position:absolute; z-index:1000; top:0px; left:50px;
      background:#fff; padding:8px 14px; border-radius:6px;
      box-shadow:0 1px 5px rgba(0, 0, 0, 0.3); font-size:14px;
      display:flex; align-items:center; gap:10px;">
     <button id="backBtn" style="display:none; border:none; background:none; 
-          padding:0; cursor:pointer; font-size:18px; color:#333;">&larr;</button>
+          padding:0; cursor:pointer; font-size:18px; color:#000000;">&larr;</button>
     <span id="label">Indonesia</span>
   </div>
 
@@ -151,6 +135,7 @@
     let popupNamaDesa = '';
     let popupLatlng = null;
     let popupInstance = null;
+    let fotoIndex = 0;
 
     const URL_DOKUMENTASI = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTNxgAjFa5xJuGoyrobT_FSp7UoHrO3qEkmYjzVbkYII3jTRTWrxXY-ZNjuwfPzGTYUsLxKgzXWCXok/pub?gid=0&single=true&output=csv';
 
@@ -318,6 +303,7 @@
       });
 
       popupIndex = 0;
+      fotoIndex = 0;
       popupNamaDesa = feature.properties.WADMKD;
       popupLatlng = latlng;
 
@@ -334,25 +320,73 @@
       } else {
         const d = popupRows[popupIndex];
         const daftarFoto = (d.foto || '').split('|').map(s => s.trim()).filter(s => s !== '');
-        const fotoHtml = daftarFoto.map(f => `<img src="${convertDriveLink(f)}">`).join('');
 
+        let areaFoto = '';
+        if (daftarFoto.length > 0) {
+          const urlFotoSekarang = convertDriveLink(daftarFoto[fotoIndex]);
+
+          // Panah transparan menempel di atas foto (gaya carousel/galeri)
+          const panahFoto = daftarFoto.length > 1 ? `
+        <button onclick="gantiFoto(-1, event)" ${fotoIndex === 0 ? 'disabled' : ''}
+          style="position:absolute; left:4px; top:50%; transform:translateY(-50%);
+                 border:none; background:rgba(0,0,0,0.4); color:#fff; width:28px; height:28px;
+                 border-radius:50%; cursor:pointer; font-size:14px; display:flex;
+                 align-items:center; justify-content:center;">&larr;</button>
+        <button onclick="gantiFoto(1, event)" ${fotoIndex === daftarFoto.length - 1 ? 'disabled' : ''}
+          style="position:absolute; right:4px; top:50%; transform:translateY(-50%);
+                 border:none; background:rgba(0,0,0,0.4); color:#fff; width:28px; height:28px;
+                 border-radius:50%; cursor:pointer; font-size:14px; display:flex;
+                 align-items:center; justify-content:center;">&rarr;</button>
+      ` : '';
+
+          // Titik-titik indikator di bawah foto (gaya Instagram)
+          const dotFoto = daftarFoto.length > 1 ? `
+        <div style="display:flex; justify-content:center; gap:6px; margin-top:8px;">
+          ${daftarFoto.map((_, i) => `
+            <span style="width:6px; height:6px; border-radius:50%;
+                         background:${i === fotoIndex ? '#0b3d91' : '#ddd'};
+                         display:inline-block;"></span>
+          `).join('')}
+        </div>
+      ` : '';
+
+          areaFoto = `
+        <div style="position:relative; margin-top:10px;">
+          <img src="${urlFotoSekarang}" style="width:100%; max-height:180px; object-fit:cover; border-radius:6px; display:block;">
+          ${panahFoto}
+        </div>
+        ${dotFoto}
+      `;
+        }
+
+        // Badge navigasi kegiatan (gaya pill berwarna)
         const navKegiatan = popupRows.length > 1 ? `
-      <div class="popup-nav">
-        <button onclick="gantiKegiatan(-1, event)" ${popupIndex === 0 ? 'disabled' : ''}>&larr;</button>
-        <span>${popupIndex + 1} / ${popupRows.length}</span>
-        <button onclick="gantiKegiatan(1, event)" ${popupIndex === popupRows.length - 1 ? 'disabled' : ''}>&rarr;</button>
+      <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:8px;">
+        <button onclick="gantiKegiatan(-1, event)" ${popupIndex === 0 ? 'disabled' : ''}
+          style="border:none; background:none; cursor:pointer; font-size:14px; color:#0b3d91; padding:2px 4px;">&larr;</button>
+        <span style="background:#e8edfa; color:#0b3d91; font-size:11px; font-weight:700;
+                     padding:3px 10px; border-radius:12px; letter-spacing:0.3px;">
+          KEGIATAN ${popupIndex + 1}/${popupRows.length}
+        </span>
+        <button onclick="gantiKegiatan(1, event)" ${popupIndex === popupRows.length - 1 ? 'disabled' : ''}
+          style="border:none; background:none; cursor:pointer; font-size:14px; color:#0b3d91; padding:2px 4px;">&rarr;</button>
       </div>` : '';
 
         kontenKegiatan = `
       ${navKegiatan}
-      <h4 style="margin:6px 0 2px;">${d.judul || '-'}</h4>
-      <small style="color:#666;">${d.tanggal || ''}</small>
-      <div>${d.keterangan || ''}</div>
-      <div class="foto-scroll">${fotoHtml}</div>
+      <h4 style="margin:6px 0 2px; font-size:14px;">${d.judul || '-'}</h4>
+      <small style="color:#666; font-size:13px;">${d.tanggal || ''}</small>
+      <div style="text-align:justify; font-size:14px; line-height:1.5;">${d.keterangan || ''}</div>
+      ${areaFoto}
     `;
       }
 
-      popupInstance.setContent(`<div style="max-width:280px;"><b>${popupNamaDesa}</b>${kontenKegiatan}</div>`);
+      popupInstance.setContent(`<div style="max-width:280px;">
+    <div style="text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 10px;">
+      ${popupNamaDesa}
+    </div>
+    ${kontenKegiatan}
+  </div>`);
     }
 
     function gantiKegiatan(arah, e) {
@@ -361,6 +395,7 @@
       popupIndex += arah;
       if (popupIndex < 0) popupIndex = 0;
       if (popupIndex > popupRows.length - 1) popupIndex = popupRows.length - 1;
+      fotoIndex = 0;
       renderPopupEntry();
     }
 
@@ -370,6 +405,26 @@
         backAction();
       }
     });
+
+    function gantiFoto(arah, e) {
+      if (e) e.stopPropagation();
+      const d = popupRows[popupIndex];
+      const daftarFoto = (d.foto || '').split('|').map(s => s.trim()).filter(s => s !== '');
+
+      fotoIndex += arah;
+      if (fotoIndex < 0) fotoIndex = 0;
+      if (fotoIndex > daftarFoto.length - 1) fotoIndex = daftarFoto.length - 1;
+
+      renderPopupEntry();
+    }
+
+    function updateHeaderHeight() {
+      const tinggi = document.getElementById('topheader').offsetHeight;
+      document.documentElement.style.setProperty('--header-height', (tinggi + 10) + 'px');
+    }
+
+    updateHeaderHeight();
+    window.addEventListener('resize', updateHeaderHeight);
   </script>
 </body>
 
