@@ -279,8 +279,8 @@
           const logoKNMP = L.icon({
             iconUrl: 'data/knmp.svg',
             iconSize: [36, 36],
-            iconAnchor: [18, 18], 
-            popupAnchor: [0, -18], 
+            iconAnchor: [18, 18],
+            popupAnchor: [0, -18],
             className: 'ikon-knmp'
           });
 
@@ -417,14 +417,14 @@
 
         kontenKegiatan = `
       ${navKegiatan}
-      <h4 style="margin:6px 0 2px; font-size:14px;">${d.judul || '-'}</h4>
-      <small style="color:#666; font-size:13px;">${d.tanggal || ''}</small>
-      <div style="text-align:justify; font-size:14px; line-height:1.5;">${d.keterangan || ''}</div>
+      <h4 style="margin:6px 0 2px; font-size:14px;">${d.judul || 'Dokumentasi Kegiatan'}</h4>
+<small style="color:#666; font-size:13px;">${d.tanggal || ''}</small>
+<div style="text-align:justify; font-size:14px; line-height:1.5; min-height:20px;">${d.keterangan || '<span style="color:#aaa;">Keterangan belum tersedia</span>'}</div>
       ${areaFoto}
     `;
       }
 
-      popupInstance.setContent(`<div style="max-width:280px;">
+      popupInstance.setContent(`<div style="max-width:300px;">
     <div style="text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 10px;">
       ${popupNamaDesa}
     </div>
@@ -470,4 +470,5 @@
     window.addEventListener('resize', updateHeaderHeight);
   </script>
 </body>
+
 </html>
