@@ -439,8 +439,7 @@
       if (!p) return '';
 
       const nilai = bacaRupiah(p.nilai_kontrak);
-      const rupiah = isNaN(nilai) ? '-' :
-        new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(nilai);
+      const rupiah = isNaN(nilai) ? '-' : 'Rp' + nilai.toLocaleString('id-ID');
 
       const mentah = String(p.progress_fisik || '').trim();
       const adaProgres = mentah !== '';
