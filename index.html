@@ -428,10 +428,17 @@
         (!p.nama_kab || String(p.nama_kab).toLowerCase().trim() === kab));
     }
 
+    function bacaRupiah(teks) {
+      let s = String(teks || '').replace(/[^\d.,]/g, '');
+      s = s.replace(/[.,]\d{1,2}$/, '');
+      const angka = parseInt(s.replace(/[^\d]/g, ''), 10);
+      return isNaN(angka) ? NaN : angka;
+    }
+
     function htmlProgres(p) {
       if (!p) return '';
 
-      const nilai = parseInt(String(p.nilai_kontrak || '').replace(/[^\d]/g, ''), 10);
+      const nilai = bacaRupiah(p.nilai_kontrak);
       const rupiah = isNaN(nilai) ? '-' :
         new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(nilai);
 
