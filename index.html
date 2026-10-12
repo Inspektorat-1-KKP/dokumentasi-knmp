@@ -176,14 +176,18 @@
     let currentLayer;
     let backAction = null;
     let docs = [];
+    let progres = [];
     let popupRows = [];
     let popupIndex = 0;
     let popupNamaDesa = '';
+    let popupDesaSpasial = '';
+    let popupKabSpasial = '';
     let popupLatlng = null;
     let popupInstance = null;
     let fotoIndex = 0;
 
     const URL_DOKUMENTASI = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQA_QHIWbvm6A6eUyeXF9b2HnmWan5TxHowyh5oSICoJ34rLaIeHkx2gE8Y3u7SlJ6g1Cii3mFckzd5/pub?gid=0&single=true&output=csv';
+    const URL_PROGRES = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQA_QHIWbvm6A6eUyeXF9b2HnmWan5TxHowyh5oSICoJ34rLaIeHkx2gE8Y3u7SlJ6g1Cii3mFckzd5/pub?gid=1187355907&single=true&output=csv';
 
     Papa.parse(URL_DOKUMENTASI, {
       download: true,
@@ -194,6 +198,19 @@
       }
     });
 
+    function muatProgres(callback) {
+      Papa.parse(URL_PROGRES + '&t=' + Date.now(), {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function (results) {
+          progres = results.data;
+          if (callback) callback();
+        }
+      });
+    }
+
+    muatProgres();
     fetch('data/provinsi_TOPO.json')
       .then(res => res.json())
       .then(topoData => {
@@ -206,21 +223,35 @@
         knmpGeo = geo;
       });
 
+    let breadcrumbAksi = [];
+
     function updateBreadcrumb(path) {
-      const html = path.map(function (teks, i) {
+      breadcrumbAksi = path.map(item => item.aksi || null);
+
+      const html = path.map(function (item, i) {
         const terakhir = (i === path.length - 1);
         const warna = terakhir ? '#000' : '#999';
         const tebal = terakhir ? '700' : '400';
-        return `<span style="color:${warna}; font-weight:${tebal};">${teks}</span>`;
+        const bisaKlik = !terakhir && item.aksi;
+
+        const gaya = 'color:' + warna + '; font-weight:' + tebal + ';' + (bisaKlik ? ' cursor:pointer;' : '');
+        const atribut = bisaKlik ? ' class="crumb-link" onclick="klikBreadcrumb(' + i + ')"' : '';
+
+        return '<span' + atribut + ' style="' + gaya + '">' + item.teks + '</span>';
       }).join(' <span style="color:#bbb;">/</span> ');
 
       document.getElementById('label').innerHTML = html;
     }
 
+    function klikBreadcrumb(i) {
+      map.closePopup();
+      if (breadcrumbAksi[i]) breadcrumbAksi[i]();
+    }
+
     function showProvinsi() {
       if (currentLayer) map.removeLayer(currentLayer);
 
-      updateBreadcrumb(['Indonesia']);
+      updateBreadcrumb([{ teks: 'Indonesia' }]);
       document.getElementById('backBtn').style.display = 'none';
       backAction = null;
 
@@ -254,7 +285,10 @@
 
           if (currentLayer) map.removeLayer(currentLayer);
 
-          updateBreadcrumb(['Indonesia', namaProvinsi]);
+          updateBreadcrumb([
+            { teks: 'Indonesia', aksi: showProvinsi },
+            { teks: namaProvinsi }
+          ]);
           document.getElementById('backBtn').style.display = 'flex';
           backAction = showProvinsi;
 
@@ -293,7 +327,11 @@
 
           if (currentLayer) map.removeLayer(currentLayer);
 
-          updateBreadcrumb(['Indonesia', namaProvinsi, namaKabupaten]);
+          updateBreadcrumb([
+            { teks: 'Indonesia', aksi: showProvinsi },
+            { teks: namaProvinsi, aksi: function () { showKabupaten(namaProvinsi); } },
+            { teks: namaKabupaten }
+          ]);
           document.getElementById('backBtn').style.display = 'flex';
           backAction = function () { showKabupaten(namaProvinsi); };
 
@@ -302,17 +340,33 @@
             features: desaGeo.features.filter(f => f.properties.WADMPR === namaProvinsi && f.properties.WADMKK === namaKabupaten)
           };
 
+          const subsetTitik = knmpGeo ? knmpGeo.features.filter(f =>
+            f.properties.WADMPR === namaProvinsi && f.properties.WADMKK === namaKabupaten) : [];
+
+          const adaTitik = function (f) {
+            return subsetTitik.some(t =>
+              t.properties.WADMKD === f.properties.WADMKD &&
+              t.properties.WADMKK === f.properties.WADMKK);
+          };
+
           const layerPoligon = L.geoJSON(subsetDesa, {
             style: function (feature) {
+              const tanpaTitik = feature.properties.kode_desa === 1 && !adaTitik(feature);
+              if (tanpaTitik) {
+                return { color: '#000000', weight: 1.5, fillColor: '#00F0FF', fillOpacity: 1 };
+              }
               return { color: '#000000', weight: 1, fillOpacity: 0 };
             },
             onEachFeature: function (feature, layer) {
               layer.bindTooltip(feature.properties.WADMKD);
+
+              if (feature.properties.kode_desa === 1 && !adaTitik(feature)) {
+                layer.on('click', function (e) {
+                  showPopupDokumentasi(feature, e.latlng);
+                });
+              }
             }
           });
-
-          const subsetTitik = knmpGeo ? knmpGeo.features.filter(f =>
-            f.properties.WADMPR === namaProvinsi && f.properties.WADMKK === namaKabupaten) : [];
 
           const logoKNMP = L.icon({
             iconUrl: 'data/knmp.svg',
@@ -322,7 +376,6 @@
             className: 'ikon-knmp'
           });
 
-          // 2. Terapkan ke layer
           const layerTitik = L.geoJSON({ type: 'FeatureCollection', features: subsetTitik }, {
             pointToLayer: function (feature, latlng) {
               return L.marker(latlng, { icon: logoKNMP });
@@ -336,9 +389,7 @@
                     f.properties.WADMKD === feature.properties.WADMKD &&
                     f.properties.WADMKK === feature.properties.WADMKK;
                 });
-                if (poligonCocok) {
-                  showPopupDokumentasi(poligonCocok, e.latlng);
-                }
+                showPopupDokumentasi(poligonCocok || feature, e.latlng);
               });
             }
           });
@@ -369,8 +420,52 @@
       return url;
     }
 
+    function cariProgres(namaDesa, namaKab) {
+      const desa = String(namaDesa).toLowerCase().trim();
+      const kab = String(namaKab).toLowerCase().trim();
+      return progres.find(p =>
+        p.nama_desa && String(p.nama_desa).toLowerCase().trim() === desa &&
+        (!p.nama_kab || String(p.nama_kab).toLowerCase().trim() === kab));
+    }
+
+    function htmlProgres(p) {
+      if (!p) return '';
+
+      const nilai = parseInt(String(p.nilai_kontrak || '').replace(/[^\d]/g, ''), 10);
+      const rupiah = isNaN(nilai) ? '-' :
+        new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(nilai);
+
+      const mentah = String(p.progress_fisik || '').trim();
+      const adaProgres = mentah !== '';
+      const persen = Math.min(100, Math.max(0,
+        parseFloat(mentah.replace('%', '').replace(',', '.')) || 0));
+
+      return `
+    <div style="margin-top:12px; padding:12px; background:#f5f8ff; border:1px solid #dbe5fb; border-radius:8px; font-size:13px;">
+      <div style="font-weight:700; color:#0b3d91; margin-bottom:8px;">Informasi Pembangunan</div>
+      <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px;">
+        <span style="color:#666;">Penyedia</span>
+        <span style="font-weight:600; text-align:right;">${p.nama_penyedia || '-'}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:8px;">
+        <span style="color:#666;">Nilai kontrak</span>
+        <span style="font-weight:600; text-align:right;">${rupiah}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+        <span style="color:#666;">Progres fisik</span>
+        <span style="font-weight:700;">${adaProgres ? persen + '%' : 'Belum dilaporkan'}</span>
+      </div>
+      ${adaProgres ? `
+      <div style="background:#dbe5fb; border-radius:6px; height:8px; overflow:hidden;">
+        <div style="width:${persen}%; height:100%; background:#0b3d91;"></div>
+      </div>` : ''}
+    </div>`;
+    }
+
     function showPopupDokumentasi(feature, latlng) {
       const namaDesaSpasial = String(feature.properties.WADMKD).toLowerCase().trim();
+      popupDesaSpasial = namaDesaSpasial;
+      popupKabSpasial = String(feature.properties.WADMKK).toLowerCase().trim();
 
       popupRows = docs.filter(d => {
         if (!d.nama_desa) return false;
@@ -398,11 +493,18 @@
       popupInstance.openOn(map);
     }
 
+    muatProgres(function () {
+      if (popupInstance && map.hasLayer(popupInstance)) renderPopupEntry();
+    });
+
     function renderPopupEntry() {
       let kontenKegiatan;
+      const infoProgres = htmlProgres(cariProgres(popupDesaSpasial, popupKabSpasial));
 
       if (popupRows.length === 0) {
-        kontenKegiatan = '<i>Belum ada dokumentasi untuk desa ini.</i>';
+        kontenKegiatan = infoProgres
+          ? '<div style="color:#888; font-size:13px; text-align:center;">Dokumentasi belum tersedia (tahap pembangunan).</div>' + infoProgres
+          : '<i>Belum ada dokumentasi untuk desa ini.</i>';
       } else {
         const d = popupRows[popupIndex];
         const daftarFoto = (d.foto || '').split('|').map(s => s.trim()).filter(s => s !== '');
@@ -459,9 +561,10 @@
         kontenKegiatan = `
       ${navKegiatan}
       <h4 style="margin:6px 0 2px; font-size:14px;">${d.judul || 'Dokumentasi Kegiatan'}</h4>
-<small style="color:#666; font-size:13px;">${d.tanggal || ''}</small>
-<div style="text-align:justify; font-size:14px; line-height:1.5; min-height:20px;">${d.keterangan || '<span style="color:#aaa;">Keterangan belum tersedia</span>'}</div>
+      <small style="color:#666; font-size:13px;">${d.tanggal || ''}</small>
+      <div style="text-align:justify; font-size:14px; line-height:1.5; min-height:20px;">${d.keterangan || '<span style="color:#aaa;">Keterangan belum tersedia</span>'}</div>
       ${areaFoto}
+      ${infoProgres}
     `;
       }
 
